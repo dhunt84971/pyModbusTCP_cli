@@ -59,7 +59,12 @@ The following commands are not case-sensitive.
 + ```Help```                        - Displays this list of commands.
 + ```IPAddress <ip address>```      - Sets the IP address for the target device.
 + ```Quit```                        - Leave console application.
-+ ```Read_Holding_Registers <register>[format] [count]```                  - Returns the specified tag values from the target device.
++ ```Read_Holding_Registers <register>[format] [count]```                  - Returns the specified register values from the target device.
+    + ```format``` - Can be:
+        + 'I' for Integer (default)
+        + 'F' for Floating point
+        + 'M' for String
+    + ```count``` - Specify the number of elements to return.  (default is 1)
 + ```ShowTiming (On | Off)```      - Turns on or off the time to execute feedback.
           
 
