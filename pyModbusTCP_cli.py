@@ -22,7 +22,7 @@ pyModbusTCP_cli 192.168.1.10
 
 pyModbusTCP_cli
 > Read read_holding_registers
-ERROR - No IPAdress specified.  Use IPAddress command.
+ERROR - No IPAddress specified.  Use IPAddress command.
 > IPAddress 192.168.1.10
 > read_holding_registers 23496
 15
