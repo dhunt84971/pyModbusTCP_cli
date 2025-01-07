@@ -129,7 +129,7 @@ def read_holding_registers(args):
     # Format as floats
     if formatReq == "F":
         for i in range(0,len(ret)-1, 2):
-            print(ret)
+            # print(ret)
             mypack=pack('>HH', ret[i], ret[i+1])
             retFormatted.append(unpack('>f', mypack)[0])
     # Format as string
