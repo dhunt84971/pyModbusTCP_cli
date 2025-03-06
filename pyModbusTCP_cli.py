@@ -21,7 +21,7 @@ pyModbusTCP_cli 192.168.1.10
 - or -
 
 pyModbusTCP_cli
-> Read read_holding_registers
+> Read read_holding_registers 23466
 ERROR - No IPAddress specified.  Use IPAddress command.
 > IPAddress 192.168.1.10
 > read_holding_registers 23496
@@ -33,6 +33,7 @@ ERROR - No IPAddress specified.  Use IPAddress command.
 import sys
 import datetime
 import time
+import struct
 
 from pyModbusTCP.client import ModbusClient
 from pathlib import Path
@@ -88,7 +89,8 @@ def ipAddress(args):
     comm = ModbusClient(host=args, auto_open=True, auto_close=True)
     comm.open()
 
-def read_holding_registers(args):
+#region WRITE FUNCTIONS
+def write(args):
     if (comm == None):
         print("ERROR - No IPAddress specified.  Use IPAddress command.")
         return
@@ -107,7 +109,86 @@ def read_holding_registers(args):
     else:
         startingRegister = int(words[0])
         formatReq = "I"
-    # Get the number of registers to read
+    words[1] = words[1].replace("[", "").replace("]","")
+    # Convert the register values to an array of integers.
+    if (formatReq == "M"):
+        registerValues = convertStringToInts(words[1])
+    elif (formatReq == "F"):
+        registerValues = [float(item.strip()) for item in words[1].split(",") if item.strip()]
+        registerValues = convertFloatsToInts(registerValues)
+    elif (formatReq == "I"):
+        registerValues = [int(item.strip()) for item in words[1].split(",") if item.strip()]
+    # Write the values.
+    start_time = time.time()
+    ret = comm.write_multiple_registers(startingRegister, registerValues)
+    exec_time = time.time() - start_time
+    if (ret):
+        print("Success")
+    if (show_timing):
+        print("Executed in {0:7.3f} seconds.".format(exec_time))
+    return
+
+def write_multiple_registers(args):
+    if (comm == None):
+        print("ERROR - No IPAddress specified.  Use IPAddress command.")
+        return
+    words = args.split()
+    if len(words) != 2:
+        print("ERROR - Invalid number of arguments.  See help for more info.")
+        return
+    startingRegister = int(words[0])
+    words[1] = words[1].replace("[", "").replace("]","")
+    registerValues = [int(item.strip()) for item in words[1].split(",") if item.strip()]
+    start_time = time.time()
+    ret = comm.write_multiple_registers(startingRegister, registerValues)
+    exec_time = time.time() - start_time
+    if (ret):
+        print("Success")
+    if (show_timing):
+        print("Executed in {0:7.3f} seconds.".format(exec_time))
+    return
+
+def write_single_register(args):
+    if (comm == None):
+        print("ERROR - No IPAddress specified.  Use IPAddress command.")
+        return
+    words = args.split()
+    if len(words) != 2:
+        print("ERROR - Invalid number of arguments.  See help for more info.")
+        return
+    startingRegister = int(words[0])
+    registerValue = int(words[1])
+    start_time = time.time()
+    ret = comm.write_single_register(startingRegister, registerValue)
+    exec_time = time.time() - start_time
+    if (ret):
+        print("Success")
+    if (show_timing):
+        print("Executed in {0:7.3f} seconds.".format(exec_time))
+    return
+
+#endregion WRITE FUNCTIONS
+
+#region READ FUNCTIONS
+def read(args):
+    if (comm == None):
+        print("ERROR - No IPAddress specified.  Use IPAddress command.")
+        return
+    words = args.split()
+    if len(words) > 2 or len(words) == 0:
+        print("ERROR - Invalid number of arguments.  See help for more info.")
+        return
+    # See if the last character is a data formatter:
+    # I=Integer (Default)
+    # F=Float
+    # M=String
+    formatTypes = ["I", "F", "M"]
+    formatReq = words[0][-1]
+    if formatReq in formatTypes:
+        startingRegister = int(words[0][:-1])
+    else:
+        startingRegister = int(words[0])
+        formatReq = "I"
     numRegisters = 1
     if formatReq == "F":
         numRegisters = 2
@@ -148,6 +229,31 @@ def read_holding_registers(args):
         print("Executed in {0:7.3f} seconds.".format(exec_time))
     return
 
+def read_holding_registers(args):
+    if (comm == None):
+        print("ERROR - No IPAddress specified.  Use IPAddress command.")
+        return
+    words = args.split()
+    if len(words) > 2 or len(words) == 0:
+        print("ERROR - Invalid number of arguments.  See help for more info.")
+        return
+    startingRegister = int(words[0])
+    numRegisters = 1
+    if len(words) > 1:
+        numRegisters = int(words[1])
+    start_time = time.time()
+    ret = comm.read_holding_registers(startingRegister, numRegisters)
+    exec_time = time.time() - start_time
+    # Format output
+    retFormatted = []
+    retFormatted = ret
+    print(retFormatted)
+    if (show_timing):
+        print("Executed in {0:7.3f} seconds.".format(exec_time))
+    return
+
+#endregion READ FUNCTIONS
+
 def getHelp(args):
     print('''
     Commands: (Not case sensitive.)
@@ -181,8 +287,16 @@ def parseCommand(command):
             getHelp(command)
         elif (words[0] == "ipaddress"):
             ipAddress(words[1])
+        elif (words[0] == "read"):
+            read(getAdditionalArgs(command))
         elif (words[0] == "read_holding_registers"):
             read_holding_registers(getAdditionalArgs(command))
+        elif (words[0] == "write"):
+            write(getAdditionalArgs(command))
+        elif (words[0] == "write_single_register"):
+            write_single_register(getAdditionalArgs(command))
+        elif (words[0] == "write_multiple_registers"):
+            write_multiple_registers(getAdditionalArgs(command))
         elif (words[0] == "showtiming"):
             showTiming(getAdditionalArgs(command))
         else:
@@ -208,6 +322,27 @@ def getAdditionalArgs(command):
         return " ".join(words[1:])
     else:
         return ""
+
+def convertFloatsToInts(floatValues):
+    result = []
+    for valueFloat in floatValues:
+        # Pack the float into 4 bytes using big-endian format.
+        packed = struct.pack('!f', valueFloat)
+        # Unpack the 4 bytes into two 16-bit unsigned integers.
+        high, low = struct.unpack('!HH', packed)
+        result.extend([high, low])
+    return result
+
+def convertStringToInts(stringValue):
+    result = []
+    for i in range(0, len(stringValue), 2):
+        high = ord(stringValue[i])
+        # Check if there's a second character in the pair.
+        low = ord(stringValue[i+1]) if i+1 < len(stringValue) else 0
+        # Combine the two bytes into one 16-bit integer.
+        combined = (high << 8) | low
+        result.append(combined)
+    return result
 
 #endregion HELPER FUNCTIONS
 
