@@ -11,61 +11,73 @@ console application allowing multiple commands to be executed.
 ## Examples of Usage
 Single command syntax example:
 ```
-pyModbusTCP_cli 192.168.1.10 read_holding_register 23496
-15
+pyModbusTCP_cli 192.168.1.10 read 23496
+[15]
 ```
 
 Console app example:
 ```
 pyModbusTCP_cli 192.168.1.10
-pyModbusTCP_cli> read_holding_registers 23496
-15
+pyModbusTCP_cli> read 23496
+[15]
 pyModbusTCP_cli> quit
 ```
 
 OR
 ```
 pyModbusTCP_cli
-pyModbusTCP_cli> Read read_holding_registers
+pyModbusTCP_cli> read 3080
 ERROR - No IPAddress specified.  Use IPAddress command.
 pyModbusTCP_cli> IPAddress 192.168.1.10
-pyModbusTCP_cli> read_holding_registers 23496
-15
+pyModbusTCP_cli> read 23496
+[15]
 pyModbusTCP_cli> quit
 ```
 
 Read an array:
 ```
-pyModbusTCP_cli 192.168.1.10 read_holding_registers 23496 5
+pyModbusTCP_cli 192.168.1.10 read 23496 5
 [15, 2, 3, 4, 5]
 ```
 
 Read a floating point value:
 ```
-pyModbusTCP_cli 192.168.1.10 read_holding_registers 23502F
+pyModbusTCP_cli 192.168.1.10 read 23502F
 [3.141962368934]
 ```
 **Note: Floating points take 2 registers for each value.  Specify the count in the number of floating point values to be returned.**
 
 Read a string value:
 ```
-pyModbusTCP_cli 192.168.1.10 read_holding_registers 23502M 30
+pyModbusTCP_cli 192.168.1.10 read 23502M 30
 Test
 ```
 **Note: Two characters are returned for each register.  Specify the count in the maximum number of characters to be returned. String values returned will be null terminated.**
+
+Write a value:
+```
+pyModbusTCP_cli 192.168.1.10 write 23496 0
+Success
+```
 
 ## Commands
 The following commands are not case-sensitive.
 + ```Help```                        - Displays this list of commands.
 + ```IPAddress <ip address>```      - Sets the IP address for the target device.
 + ```Quit```                        - Leave console application.
-+ ```Read_Holding_Registers <register>[format] [count]```                  - Returns the specified register values from the target device.
++ ```Read <register>[format] [count]```                  - Returns the specified register values from the target device.
     + ```format``` - Can be:
         + 'I' for Integer (default)
+        + 'S' for Signed Integer
         + 'F' for Floating point
         + 'M' for String
     + ```count``` - Specify the number of elements to return.  (default is 1)
++ ```Read_Holding_Registers <register> [count]```   - Returns the specified register values as unformatted integers from the target device.
++ ```Write <starting register>[format] <comma separated list of values>```  - Writes the value(s) using the format to the starting register.
++ ```Write_Single_Register <register> <value>```    - Writes the integer value to the specified register.
++ ```Write_Multiple_registers <starting register> <comma separated list of values>```   - Writes the integer values starting at the specified register.
 + ```ShowTiming (On | Off)```      - Turns on or off the time to execute feedback.
++ ```Version``` - Displays the version.
           
 
 ## The pyModbusTCP Project

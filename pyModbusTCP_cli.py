@@ -38,7 +38,7 @@ import struct
 from pyModbusTCP.client import ModbusClient
 from pathlib import Path
 from struct import *
-version = "0.0.1"
+version = "0.0.2"
 comm = None # Global variable for ModbusClient
 output_format = "raw"
 output_formats = ["raw", "readable", "minimal"]
@@ -95,32 +95,43 @@ def write(args):
         print("ERROR - No IPAddress specified.  Use IPAddress command.")
         return
     words = args.split()
-    if len(words) > 2 or len(words) == 0:
+    if len(words) < 2:
         print("ERROR - Invalid number of arguments.  See help for more info.")
         return
     # See if the last character is a data formatter:
     # I=Integer (Default)
     # F=Float
     # M=String
-    formatTypes = ["I", "F", "M"]
+    formatTypes = ["I", "S", "F", "M"]
     formatReq = words[0][-1]
-    if formatReq in formatTypes:
-        startingRegister = int(words[0][:-1])
-    else:
-        startingRegister = int(words[0])
-        formatReq = "I"
-    words[1] = words[1].replace("[", "").replace("]","")
-    # Convert the register values to an array of integers.
-    if (formatReq == "M"):
-        registerValues = convertStringToInts(words[1])
-    elif (formatReq == "F"):
-        registerValues = [float(item.strip()) for item in words[1].split(",") if item.strip()]
-        registerValues = convertFloatsToInts(registerValues)
-    elif (formatReq == "I"):
-        registerValues = [int(item.strip()) for item in words[1].split(",") if item.strip()]
+    try: # Catch any formatting errors.
+        if formatReq in formatTypes:
+            startingRegister = int(words[0][:-1])
+        else:
+            startingRegister = int(words[0])
+            formatReq = "I"
+        # Concatenate the remaining arguments into a single argument.
+        values = " ".join(words[1:])
+        # Remove the brackets.
+        values = values.replace("[", "").replace("]","")
+        # Convert the register values to an array of integers.
+        if (formatReq == "M"):
+            registerValues = convertStringToInts(values)
+        elif (formatReq == "F"):
+            registerValues = [float(item.strip()) for item in values.split(",") if item.strip()]
+            registerValues = convertFloatsToInts(registerValues)
+        elif ((formatReq == "I") or (formatReq == "S")):
+            registerValues = [int(item.strip()) for item in values.split(",") if item.strip()]
+            registerValues = convertSIntsToInts(registerValues)
+    except Exception as error:
+        print("ERROR - {0}".format(str(error)))
+        return
     # Write the values.
     start_time = time.time()
-    ret = comm.write_multiple_registers(startingRegister, registerValues)
+    try:
+        ret = comm.write_multiple_registers(startingRegister, registerValues)
+    except Exception as error:
+        print("ERROR - {0}".format(str(error)))
     exec_time = time.time() - start_time
     if (ret):
         print("Success")
@@ -140,7 +151,10 @@ def write_multiple_registers(args):
     words[1] = words[1].replace("[", "").replace("]","")
     registerValues = [int(item.strip()) for item in words[1].split(",") if item.strip()]
     start_time = time.time()
-    ret = comm.write_multiple_registers(startingRegister, registerValues)
+    try:
+        ret = comm.write_multiple_registers(startingRegister, registerValues)
+    except Exception as error:
+        print("ERROR - {0}".format(str(error)))
     exec_time = time.time() - start_time
     if (ret):
         print("Success")
@@ -159,7 +173,10 @@ def write_single_register(args):
     startingRegister = int(words[0])
     registerValue = int(words[1])
     start_time = time.time()
-    ret = comm.write_single_register(startingRegister, registerValue)
+    try:
+        ret = comm.write_single_register(startingRegister, registerValue)
+    except Exception as error:
+        print("ERROR - {0}".format(str(error)))
     exec_time = time.time() - start_time
     if (ret):
         print("Success")
@@ -180,33 +197,49 @@ def read(args):
         return
     # See if the last character is a data formatter:
     # I=Integer (Default)
+    # S=Signed Integer
     # F=Float
     # M=String
-    formatTypes = ["I", "F", "M"]
+    formatTypes = ["I", "S", "F", "M"]
     formatReq = words[0][-1]
-    if formatReq in formatTypes:
-        startingRegister = int(words[0][:-1])
-    else:
-        startingRegister = int(words[0])
-        formatReq = "I"
-    numRegisters = 1
-    if formatReq == "F":
-        numRegisters = 2
-    if len(words) > 1:
-        numRegisters = int(words[1])
+    try: # Catch any formatting errors.
+        if formatReq in formatTypes:
+            startingRegister = int(words[0][:-1])
+        else:
+            startingRegister = int(words[0])
+            formatReq = "I"
+        numRegisters = 1
         if formatReq == "F":
-            numRegisters = numRegisters * 2
-        elif formatReq == "M":
-            numRegisters = int(numRegisters / 2)
-            if numRegisters < 1:
-                numRegisters = 1
+            numRegisters = 2
+        if len(words) > 1:
+            numRegisters = int(words[1])
+            if formatReq == "F":
+                numRegisters = numRegisters * 2
+            elif formatReq == "M":
+                numRegisters = int(numRegisters / 2)
+                if numRegisters < 1:
+                    numRegisters = 1
+    except Exception as error:
+        print("ERROR - {0}".format(str(error)))
+        return
     start_time = time.time()
-    ret = comm.read_holding_registers(startingRegister, numRegisters)
+    try:
+        ret = comm.read_holding_registers(startingRegister, numRegisters)
+    except Exception as error:
+        print("ERROR - {0}".format(str(error)))
     exec_time = time.time() - start_time
     # Format output
     retFormatted = []
+    # Format as unsigned integer (Default)
     if formatReq == "I":
         retFormatted = ret
+    # Format as signed integer
+    if formatReq == "S":
+        for i in range(0, len(ret)):
+            if (ret[i] > 32767):
+                retFormatted.append(ret[i] - 65536)
+            else:
+                retFormatted.append(ret[i])
     # Format as floats
     if formatReq == "F":
         for i in range(0,len(ret)-1, 2):
@@ -242,7 +275,10 @@ def read_holding_registers(args):
     if len(words) > 1:
         numRegisters = int(words[1])
     start_time = time.time()
-    ret = comm.read_holding_registers(startingRegister, numRegisters)
+    try:
+        ret = comm.read_holding_registers(startingRegister, numRegisters)
+    except Exception as error:
+        print("ERROR - {0}".format(str(error)))
     exec_time = time.time() - start_time
     # Format output
     retFormatted = []
@@ -261,8 +297,26 @@ def getHelp(args):
           - Displays this list of commands.
         IPAddress <ip address>                          
           - Sets the IP address for the target device.
-        Read_Holding_Registers <register>[format] [count]       
-          - Read 4x holding register data from the device.
+        Read <register>[format] [count]
+          - Returns the specified register values from the target device.
+          - format is:
+              + 'I' for Integer (default)
+              + 'S' for Signed Integer
+              + 'F' for Floating point
+              + 'M' for String
+          - count is the number of elements to return.  (default is 1)
+        Read_Holding_Registers <register> [count]
+          - Returns the specified register values as unformatted integers from the target device.
+        Write <starting register>[format] <comma separated list of values>
+          - Writes the value(s) using the format to the starting register.
+        Write_Single_Register <register> <value>
+          - Writes the integer value to the specified register.
+        Write_Multiple_registers <starting register> <comma separated list of values>
+          - Writes the integer values starting at the specified register.
+        ShowTiming (On | Off)
+          - Turns on or off the time to execute feedback.
+        Version
+          - Displays the version number for the application.
         Quit                                            
           - Leave console application.
     ''')
@@ -299,6 +353,8 @@ def parseCommand(command):
             write_multiple_registers(getAdditionalArgs(command))
         elif (words[0] == "showtiming"):
             showTiming(getAdditionalArgs(command))
+        elif (words[0] == "version"):
+            print(version)
         else:
             print("ERROR - Unrecognized command.  Enter Help for a list of commands.")
     return
@@ -322,6 +378,14 @@ def getAdditionalArgs(command):
         return " ".join(words[1:])
     else:
         return ""
+
+def convertSIntsToInts(intValues):
+    result = []
+    for intValue in intValues:
+        if (intValue < 0):
+            intValue = 65536 + intValue
+        result.append(intValue)
+    return result
 
 def convertFloatsToInts(floatValues):
     result = []
