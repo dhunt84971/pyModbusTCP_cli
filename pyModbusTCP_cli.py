@@ -38,7 +38,7 @@ import struct
 from pyModbusTCP.client import ModbusClient
 from pathlib import Path
 from struct import *
-version = "0.0.2"
+version = "0.1.0"
 comm = None # Global variable for ModbusClient
 output_format = "raw"
 output_formats = ["raw", "readable", "minimal"]
