@@ -78,7 +78,11 @@ The following commands are not case-sensitive.
 + ```Write_Multiple_registers <starting register> <comma separated list of values>```   - Writes the integer values starting at the specified register.
 + ```ShowTiming (On | Off)```      - Turns on or off the time to execute feedback.
 + ```Version``` - Displays the version.
-          
+
+## Multi-Tag Commands:
+Filenames are case sensitive.
++ ```ReadTagFile <filename> [<outfile>]```
+    - Returns the values of the tags from the file.
 
 ## The pyModbusTCP Project
 This application is a command line wrapper to ease the use of the many functions of the pyModbusTCP library.  The pyinstaller program is used to create an executable package on Windows that does not require the installation of Python.

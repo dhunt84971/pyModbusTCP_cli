@@ -74,13 +74,24 @@ def getTagValues(tags):
     for tag in tags:
         if len(tag) > 0:
             try:
-                result = comm.read(tag)
+                result = read(tag, mode="silent")
             except Exception as error:
                 #print("Error reading: " + tag + " - " + str(error))
                 outData += [tag + "=!ERROR!"]
                 continue
-            outData += [tag + "=" + str(result.value)]
+            outData += [tag + "=" + str(result)]
     return outData
+
+def getTagValuesFromFile(filename):
+    tags = []
+    try:
+        tags = Path(filename).read_text().split("\n")
+    except Exception as error:
+        print("ERROR - Error opening the file {0}. {1}".format(filename, str(error)))
+        return []
+    outData = getTagValues(tags)
+    return outData
+
 #endregion DATA HELPER FUNCTIONS
 
 #region CONSOLE COMMAND DEFINITIONS
@@ -187,14 +198,14 @@ def write_single_register(args):
 #endregion WRITE FUNCTIONS
 
 #region READ FUNCTIONS
-def read(args):
+def read(args, mode="print"):
     if (comm == None):
         print("ERROR - No IPAddress specified.  Use IPAddress command.")
-        return
+        return "ERROR"
     words = args.split()
     if len(words) > 2 or len(words) == 0:
         print("ERROR - Invalid number of arguments.  See help for more info.")
-        return
+        return "ERROR"
     # See if the last character is a data formatter:
     # I=Integer (Default)
     # S=Signed Integer
@@ -221,7 +232,7 @@ def read(args):
                     numRegisters = 1
     except Exception as error:
         print("ERROR - {0}".format(str(error)))
-        return
+        return "ERROR"
     start_time = time.time()
     try:
         ret = comm.read_holding_registers(startingRegister, numRegisters)
@@ -257,19 +268,20 @@ def read(args):
                 retFormatted += chr(bytesVal[0])
                 break
             retFormatted += chr(bytesVal[0]) + chr(bytesVal[1])
-    print(retFormatted)
+    if (mode=="print"):
+        print(retFormatted)
     if (show_timing):
         print("Executed in {0:7.3f} seconds.".format(exec_time))
-    return
+    return retFormatted
 
 def read_holding_registers(args):
     if (comm == None):
         print("ERROR - No IPAddress specified.  Use IPAddress command.")
-        return
+        return "ERROR"
     words = args.split()
     if len(words) > 2 or len(words) == 0:
         print("ERROR - Invalid number of arguments.  See help for more info.")
-        return
+        return "ERROR"
     startingRegister = int(words[0])
     numRegisters = 1
     if len(words) > 1:
@@ -286,6 +298,27 @@ def read_holding_registers(args):
     print(retFormatted)
     if (show_timing):
         print("Executed in {0:7.3f} seconds.".format(exec_time))
+    return
+
+def readTagFile(args):
+    if (comm == None):
+        print("ERROR - No IPAddress specified.  Use IPAddress command.")
+        return
+    words = args.split()
+    filename = words[0]
+    start_time = time.time()
+    outData = getTagValuesFromFile(filename)
+    if len(outData) > 0:
+        outFile = ""
+        if len(words) > 1:
+            outFile = words[1]
+        exec_time = time.time() - start_time
+        if len(outFile) > 0:
+            Path(outFile).write_text("\n".join(outData))
+        else:
+            print("\n".join(outData))
+        if (show_timing):
+            print("executed in {0:7.3f} seconds.".format(exec_time))
     return
 
 #endregion READ FUNCTIONS
@@ -345,6 +378,8 @@ def parseCommand(command):
             read(getAdditionalArgs(command))
         elif (words[0] == "read_holding_registers"):
             read_holding_registers(getAdditionalArgs(command))
+        elif (words[0] == "readtagfile"):
+            readTagFile(getAdditionalArgs(command))
         elif (words[0] == "write"):
             write(getAdditionalArgs(command))
         elif (words[0] == "write_single_register"):
