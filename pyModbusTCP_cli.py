@@ -38,7 +38,7 @@ import struct
 from pyModbusTCP.client import ModbusClient
 from pathlib import Path
 from struct import *
-version = "0.1.0"
+version = "0.1.1"
 comm = None # Global variable for ModbusClient
 output_format = "raw"
 output_formats = ["raw", "readable", "minimal"]
@@ -211,7 +211,7 @@ def read(args, mode="print"):
     # S=Signed Integer
     # F=Float
     # M=String
-    formatTypes = ["I", "S", "F", "M"]
+    formatTypes = ["I", "S", "F", "M", "B"]
     formatReq = words[0][-1]
     try: # Catch any formatting errors.
         if formatReq in formatTypes:
@@ -235,12 +235,18 @@ def read(args, mode="print"):
         return "ERROR"
     start_time = time.time()
     try:
-        ret = comm.read_holding_registers(startingRegister, numRegisters)
+        if formatReq != "B":
+            ret = comm.read_holding_registers(startingRegister, numRegisters)
+        else:
+            ret = comm.read_coils(startingRegister, numRegisters)
     except Exception as error:
         print("ERROR - {0}".format(str(error)))
     exec_time = time.time() - start_time
     # Format output
     retFormatted = []
+    # Format as bool
+    if formatReq == "B":
+        retFormatted = ret
     # Format as unsigned integer (Default)
     if formatReq == "I":
         retFormatted = ret
@@ -337,6 +343,7 @@ def getHelp(args):
               + 'S' for Signed Integer
               + 'F' for Floating point
               + 'M' for String
+              + 'B' for Coil (Bit) Note: Uses CoilRead function.
           - count is the number of elements to return.  (default is 1)
         Read_Holding_Registers <register> [count]
           - Returns the specified register values as unformatted integers from the target device.
